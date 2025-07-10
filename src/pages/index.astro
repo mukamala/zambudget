@@ -13,36 +13,175 @@ import { SITE_TITLE, SITE_DESCRIPTION } from '../consts';
 	<body>
 		<Header />
 		<main>
-			<h1>🧑‍🚀 Hello, Astronaut!</h1>
+			<h1>Hello, Finacial Literacy!</h1>
 			<p>
-				Welcome to the official <a href="https://astro.build/">Astro</a> blog starter template. This
-				template serves as a lightweight, minimally-styled starting point for anyone looking to build
-				a personal website, blog, or portfolio with Astro.
-			</p>
-			<p>
-				This template comes with a few integrations already configured in your
-				<code>astro.config.mjs</code> file. You can customize your setup with
-				<a href="https://astro.build/integrations">Astro Integrations</a> to add tools like Tailwind,
-				React, or Vue to your project.
-			</p>
-			<p>Here are a few ideas on how to get started with the template:</p>
-			<ul>
-				<li>Edit this page in <code>src/pages/index.astro</code></li>
-				<li>Edit the site header items in <code>src/components/Header.astro</code></li>
-				<li>Add your name to the footer in <code>src/components/Footer.astro</code></li>
-				<li>Check out the included blog posts in <code>src/content/blog/</code></li>
-				<li>Customize the blog post page layout in <code>src/layouts/BlogPost.astro</code></li>
-			</ul>
-			<p>
-				Have fun! If you get stuck, remember to <a href="https://docs.astro.build/"
-					>read the docs
-				</a> or <a href="https://astro.build/chat">join us on Discord</a> to ask questions.
-			</p>
-			<p>
-				Looking for a blog template with a bit more personality? Check out <a
-					href="https://github.com/Charca/astro-blog-template"
-					>astro-blog-template
-				</a> by <a href="https://twitter.com/Charca">Maxi Ferreira</a>.
+			<?php
+session_start();
+if (!isset($_SESSION['budget'])) $_SESSION['budget'] = [];
+if (!isset($_SESSION['total_budget'])) $_SESSION['total_budget'] = 0;
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    if (isset($_POST['set_budget'])) {
+        $_SESSION['total_budget'] = floatval($_POST['budget']);
+    } elseif (isset($_POST['add_item'])) {
+        $_SESSION['budget'][] = [
+            'id' => uniqid(),
+            'name' => $_POST['name'],
+            'planned' => floatval($_POST['planned']),
+            'actual' => null,
+            'done' => false
+        ];
+    } elseif (isset($_POST['complete_item'])) {
+        foreach ($_SESSION['budget'] as &$item) {
+            if ($item['id'] === $_POST['id']) {
+                $item['done'] = true;
+                $item['actual'] = floatval($_POST['actual']);
+                break;
+            }
+        }
+    } elseif (isset($_POST['delete_item'])) {
+        $_SESSION['budget'] = array_filter($_SESSION['budget'], fn($i) => $i['id'] !== $_POST['id']);
+    }
+}
+?>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Zambia Budget Planner</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+<link rel="manifest" href="manifest.json">
+<style>
+body {
+  background: linear-gradient(to bottom right, #f0f4f8, #e0e7ff);
+  min-height: 100vh;
+}
+.card {
+  border-radius: 1rem;
+  overflow: hidden;
+}
+.table td, .table th {
+  vertical-align: middle;
+}
+input[type=number]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+</style>
+</head>
+<body>
+<div class="container py-4">
+<div class="card shadow-sm p-4">
+<h2 class="text-center mb-4">💰 Zambia Budget Planner</h2>
+
+<?php if ($_SESSION['total_budget'] <= 0): ?>
+<form method="post" class="text-center mb-3">
+    <input name="budget" type="number" step="0.01" placeholder="Enter total budget" required class="form-control mb-2 w-75 mx-auto text-center">
+    <button name="set_budget" class="btn btn-primary rounded-pill px-4">Set Budget</button>
+</form>
+<?php else: ?>
+<div class="text-center mb-3">
+<p class="fs-5"><strong>Total Budget:</strong> K<?= number_format($_SESSION['total_budget'],2) ?></p>
+<a href="?reset=1" class="btn btn-outline-warning btn-sm rounded-pill">Reset</a>
+</div>
+<?php endif; ?>
+
+<form method="post" class="row g-2 mb-3">
+    <div class="col-12 col-md-6">
+        <input name="name" placeholder="Item name" required class="form-control">
+    </div>
+    <div class="col-6 col-md-3">
+        <input name="planned" type="number" step="0.01" placeholder="Planned price" required class="form-control">
+    </div>
+    <div class="col-6 col-md-3 d-grid">
+        <button name="add_item" class="btn btn-success rounded-pill">Add Item</button>
+    </div>
+</form>
+
+<div class="table-responsive mb-3">
+<table class="table table-hover align-middle">
+<thead class="table-light"><tr>
+<th>Item</th><th>Planned</th><th>Actual</th><th>Status</th><th>Actions</th>
+</tr></thead><tbody>
+<?php
+$planned = 0; $actual = 0; $done = 0;
+foreach ($_SESSION['budget'] as $item):
+$planned += $item['planned'];
+if ($item['done']) {
+    $actual += $item['actual']; $done++;
+}
+?>
+<tr class="<?= $item['done'] ? 'table-success' : '' ?>">
+<td><?= htmlspecialchars($item['name']) ?></td>
+<td>K<?= number_format($item['planned'],2) ?></td>
+<td><?= $item['actual'] !== null ? "K".number_format($item['actual'],2) : '-' ?></td>
+<td><?= $item['done'] ? '✅ Done' : '❌ Pending' ?></td>
+<td>
+<div class="d-flex flex-wrap gap-1">
+<?php if (!$item['done']): ?>
+<form method="post" class="d-inline-flex gap-1">
+    <input type="hidden" name="id" value="<?= $item['id'] ?>">
+    <input name="actual" type="number" step="0.01" placeholder="Actual" required class="form-control form-control-sm w-auto">
+    <button name="complete_item" class="btn btn-sm btn-primary rounded-pill">✔</button>
+</form>
+<?php endif; ?>
+<form method="post" class="d-inline">
+    <input type="hidden" name="id" value="<?= $item['id'] ?>">
+    <button name="delete_item" class="btn btn-sm btn-danger rounded-pill">🗑</button>
+</form>
+</div>
+</td>
+</tr>
+<?php endforeach; ?>
+</tbody>
+</table>
+</div>
+
+<?php
+$remaining = $_SESSION['total_budget'] - $actual;
+?>
+<div class="alert alert-info text-center fs-6 rounded-pill px-4 py-2">
+Planned: K<?= number_format($planned,2) ?> |
+Actual: K<?= number_format($actual,2) ?> |
+Remaining: K<?= number_format($remaining,2) ?>
+</div>
+
+<div class="d-grid">
+<button class="btn btn-secondary rounded-pill py-2" onclick="share()">📤 Share Budget</button>
+</div>
+
+<script>
+function share() {
+    const text = `🛒 Budget Planner\nPlanned: K<?= number_format($planned,2) ?>\nActual: K<?= number_format($actual,2) ?>\nRemaining: K<?= number_format($remaining,2) ?>\nItems:\n<?php foreach ($_SESSION['budget'] as $i): ?>- <?= $i['done'] ? "✅" : "⬜️" ?> <?= htmlspecialchars($i['name']) ?> (Planned: K<?= number_format($i['planned'],2) ?><?= $i['done'] ? " → Actual: K".number_format($i['actual'],2) : "" ?>)\n<?php endforeach; ?>#SmartShopping`;
+    navigator.clipboard.writeText(text).then(() => {
+        alert("📋 Budget copied! Paste it on WhatsApp, Facebook, etc.");
+    });
+}
+
+if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('sw.js');
+}
+window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    if (confirm("Do you want to save this app on your phone?")) {
+        e.prompt();
+    }
+});
+</script>
+
+</div>
+</div>
+</body>
+</html>
+
+<?php
+if (isset($_GET['reset'])) {
+    session_destroy();
+    header("Location: index.astro");
+    exit;
+}
+?>
 			</p>
 		</main>
 		<Footer />
